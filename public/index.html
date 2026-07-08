@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Break Buddy - step out, meet nearby</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="apple-touch-icon" href="/assest/Icons/coffe-icon.webp" />
+  <meta name="theme-color" content="#0a0e27" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+</head>
+<body>
+  <!-- shown only on desktop / wide screens -->
+  <div id="desktopGate">
+    <div class="brand"><span class="dot"></span> Break Buddy</div>
+    <div class="phone-ico">📱</div>
+    <h2>Open on your phone</h2>
+    <p>Break Buddy is built for mobile. Open this link on your phone, or make your browser window narrow to preview.</p>
+    <div class="url" id="gateUrl"></div>
+  </div>
+
+  <div id="installBanner" class="install-banner">
+    <span id="installText">Install Break Buddy for quick access</span>
+    <button id="installBtn" class="install-btn">Install</button>
+    <button id="installDismiss" class="install-x" aria-label="dismiss">✕</button>
+  </div>
+
+  <div id="app">
+
+    <!-- LOGIN -->
+    <section id="screen-login" class="screen active">
+      <div class="brand"><span class="dot"></span> Break Buddy</div>
+      <h1 class="hero">stop scrolling<br /><span class="grad">step out now</span></h1>
+
+      <!-- stacked hero cards (SocialJar style) -->
+      <div class="hero-stack">
+        <div class="stack-card b2"></div>
+        <div class="stack-card b1"></div>
+        <div class="stack-card front glass" id="heroCard">
+          <div class="bubbles"><span></span><span></span><span></span></div>
+          <div class="hero-img-wrap"><img id="heroImg" class="hero-img" alt="" /></div>
+          <div class="hero-you">you + <span id="heroName" class="grn">Diya</span></div>
+          <div class="hero-act" id="heroAct">chai time</div>
+          <div class="hero-meta">📍 <span id="heroSpot">chai tapri</span> · now</div>
+          <button class="btn-primary hero-join" id="heroJoin">Join the hang</button>
+        </div>
+      </div>
+
+      <div class="glass card-login">
+        <p class="label">pick your vibe</p>
+        <div id="avatarPick" class="avatars">
+          <button class="av selected">🙂</button>
+          <button class="av">🔥</button>
+          <button class="av">☕</button>
+          <button class="av">🎧</button>
+          <button class="av">🥳</button>
+          <button class="av">⚡</button>
+        </div>
+        <input id="nameInput" class="field" placeholder="your name" maxlength="30" />
+        <div class="seg" id="genderSeg">
+          <button data-g="">skip</button>
+          <button data-g="male">male</button>
+          <button data-g="female">female</button>
+        </div>
+        <button id="loginBtn" class="btn-primary">Enter Break Buddy</button>
+        <p id="loginErr" class="err"></p>
+      </div>
+
+      <section class="how">
+        <h2 class="how-title">how it works</h2>
+        <div class="how-card glass">
+          <div class="how-ico">📍</div>
+          <div class="how-h">drop a break</div>
+          <div class="how-sub">Tap that you are stepping out. Anyone close by sees it live.</div>
+        </div>
+        <div class="how-card glass">
+          <div class="how-ico">🙋</div>
+          <div class="how-h">someone joins</div>
+          <div class="how-sub">A buddy nearby taps join and you both get a spot to meet.</div>
+        </div>
+        <div class="how-card glass">
+          <div class="how-ico">🍵</div>
+          <div class="how-h">meet for real</div>
+          <div class="how-sub">Walk over, meet in minutes. No endless texting, just a quick break together.</div>
+        </div>
+      </section>
+    </section>
+
+    <!-- HOME -->
+    <section id="screen-home" class="screen">
+      <header class="topbar">
+        <div class="brand small"><span class="dot"></span> Break Buddy</div>
+        <div class="me" id="meChip"></div>
+      </header>
+
+      <div class="map-wrap">
+        <div id="map"></div>
+        <button id="mapFull" class="map-full-btn" aria-label="expand map">⤢</button>
+      </div>
+
+      <div class="home-body">
+        <div id="notifyBanner" class="notify-banner">
+          <span>Turn on notifications for join requests & replies</span>
+          <button id="notifyBtn" class="install-btn">Enable</button>
+          <button id="notifyDismiss" class="install-x" aria-label="dismiss">✕</button>
+        </div>
+        <div class="row-between">
+          <h2 class="h2">nearby right now</h2>
+          <span id="locStatus" class="loc">locating...</span>
+        </div>
+        <p id="nearbyHint" class="nearby-hint">Looking around you...</p>
+      </div>
+
+      <nav class="bottom-bar glass">
+        <button id="navHome" class="bar-btn">home</button>
+        <button id="navBreak" class="bar-btn">take a break</button>
+        <button id="navJoin" class="bar-btn">join a break</button>
+      </nav>
+    </section>
+  </div>
+
+  <!-- JOIN A BREAK SHEET -->
+  <div id="joinSheet" class="sheet-wrap">
+    <div class="sheet glass tall">
+      <div class="sheet-handle"></div>
+      <div class="row-between">
+        <h3 class="h3">join a break</h3>
+        <button id="closeJoin" class="x">✕</button>
+      </div>
+      <div id="joinList" class="ping-list" style="overflow-y:auto;"></div>
+    </div>
+  </div>
+
+
+  <!-- CREATE BREAK SHEET -->
+  <div id="createSheet" class="sheet-wrap">
+    <div class="sheet glass">
+      <div class="sheet-handle"></div>
+      <h3 class="h3">what break?</h3>
+      <div class="chips" id="typeChips">
+        <button class="chip selected" data-t="chai"><img class="chip-ico" src="/assest/Icons/chai-icons.webp" alt="">chai</button>
+        <button class="chip" data-t="coffee"><img class="chip-ico" src="/assest/Icons/coffe-icon.webp" alt="">coffee</button>
+        <button class="chip" data-t="walk">🚶 walk</button>
+        <button class="chip" data-t="smoke"><img class="chip-ico" src="/assest/Icons/cigrate-icons.webp" alt="">smoke</button>
+        <button class="chip" data-t="chill">🎧 chill</button>
+        <button class="chip" data-t="drinks"><img class="chip-ico" src="/assest/Icons/coke-icon.webp" alt="">drinks</button>
+      </div>
+      <p class="label">how long</p>
+      <div class="chips" id="durChips">
+        <button class="chip" data-d="10">10 min</button>
+        <button class="chip selected" data-d="20">20 min</button>
+        <button class="chip" data-d="30">30 min</button>
+      </div>
+      <input id="spotInput" class="field" placeholder="meeting spot (e.g. Gate 2 tea stall)" maxlength="60" required />
+      <p id="spotErr" class="err" style="text-align:left;margin:-8px 0 10px;"></p>
+      <div class="sheet-actions">
+        <button id="cancelCreate" class="btn-ghost">cancel</button>
+        <button id="goLive" class="btn-primary">Go live</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BREAK DETAIL / CHAT -->
+  <div id="detailSheet" class="sheet-wrap">
+    <div class="sheet glass tall">
+      <div class="sheet-handle"></div>
+      <div class="row-between">
+        <h3 class="h3" id="detailTitle">break</h3>
+        <button id="closeDetail" class="x">✕</button>
+      </div>
+      <div id="detailSpot" class="spot"></div>
+      <div id="joinReqs" class="join-reqs"></div>
+      <div id="chatBox" class="chat"></div>
+      <div id="chatInputWrap" class="chat-input">
+        <input id="chatInput" class="field" placeholder="say hi..." maxlength="300" />
+        <button id="sendMsg" class="btn-primary sm">send</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- LIVE NOTIFICATION: nearby break, or someone wants to join yours -->
+  <div id="notifSheet" class="sheet-wrap">
+    <div class="sheet glass hang-card">
+      <div class="sheet-handle"></div>
+      <div class="hang-who">
+        <span id="notifAvatar" class="hang-avatar"></span>
+        <span><b id="notifName">Someone</b> <span id="notifSuffix">is nearby</span></span>
+      </div>
+      <div class="hero-img-wrap hang-img-wrap" id="notifImgWrap"></div>
+      <div class="hang-tagline" id="notifTagline">down for a break?</div>
+      <div class="hang-meta" id="notifMeta">📍 nearby · now</div>
+      <button id="notifPrimary" class="btn-primary">Join the hang</button>
+      <div id="notifCounterWrap">
+        <p class="hang-counter-label">not feeling it? counter with —</p>
+        <div class="chips hang-counters" id="notifCounters"></div>
+      </div>
+      <button id="notifSkip" class="hang-skip">Not right now</button>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

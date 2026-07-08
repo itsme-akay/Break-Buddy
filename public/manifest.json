@@ -1,0 +1,14 @@
+{
+  "name": "Break Buddy",
+  "short_name": "BreakBuddy",
+  "description": "Step out and meet someone nearby for a quick break.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0a0e27",
+  "theme_color": "#0a0e27",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/assest/Icons/coffe-icon.webp", "sizes": "450x450", "type": "image/webp", "purpose": "any" }
+  ]
+}
