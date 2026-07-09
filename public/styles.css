@@ -110,7 +110,7 @@ input[type="date"].field { color-scheme: dark; }
 input[type="date"].field::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
 
 .spot-suggest {
-  display: none; position: absolute; left: 0; right: 0; top: calc(100% - 10px); z-index: 40;
+  display: none; z-index: 40; margin-top: 6px;
   background: var(--card); border: 1px solid var(--glass-brd); border-radius: 14px;
   max-height: 220px; overflow-y: auto; backdrop-filter: blur(14px);
 }
@@ -222,7 +222,7 @@ body:has(.sheet-wrap.open) .bottom-bar { display: none; }
 .sheet-wrap { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: none; align-items: flex-end; justify-content: center; z-index: 900; }
 .sheet-wrap.open { display: flex; animation: backdropIn 0.28s ease; }
 @keyframes backdropIn { from { background: rgba(0,0,0,0); } to { background: rgba(0,0,0,0.55); } }
-.sheet { width: 100%; max-width: 480px; border-radius: 26px 26px 0 0; padding: 14px 20px 26px; animation: up 0.34s cubic-bezier(0.22, 1, 0.36, 1); }
+.sheet { width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; border-radius: 26px 26px 0 0; padding: 14px 20px 26px; animation: up 0.34s cubic-bezier(0.22, 1, 0.36, 1); }
 .sheet.tall { height: 82vh; height: 82dvh; display: flex; flex-direction: column; }
 @keyframes up { from { transform: translateY(40px); opacity: 0.4; } to { transform: translateY(0); opacity: 1; } }
 .sheet-handle { width: 44px; height: 5px; background: var(--glass-brd); border-radius: 20px; margin: 0 auto 16px; }
@@ -248,7 +248,9 @@ body:has(.sheet-wrap.open) .bottom-bar { display: none; }
 .profile-gallery-empty { color: var(--muted); font-size: 13px; text-align: center; }
 .profile-about-view { font-size: 14px; color: var(--muted); min-height: 20px; margin: 0 0 14px; white-space: pre-wrap; }
 .profile-about-edit { min-height: 80px; resize: none; margin-bottom: 10px; }
-.profile-logout { flex: none; margin-top: 18px; color: #ff6b6b; border-color: rgba(255,107,107,0.35); }
+.profile-actions { display: flex; gap: 12px; margin-top: 8px; }
+.profile-actions .btn-primary.sm { flex: 1; width: auto; }
+.profile-logout { color: #ff6b6b; border-color: rgba(255,107,107,0.35); }
 
 .join-reqs { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
 .jr { display: flex; align-items: center; gap: 12px; padding: 13px 15px; border-radius: 16px; background: var(--glass); border: 1px solid var(--glass-brd); animation: jrIn 0.28s cubic-bezier(0.22, 1, 0.36, 1); }

@@ -125,7 +125,7 @@ $("#loginBtn").addEventListener("click", async () => {
     pickedPhotos.forEach((f) => { if (f) fd.append("photos", f); });
     try {
       const upRes = await fetch("/api/profile/photos", { method: "POST", headers: { Authorization: "Bearer " + token }, body: fd });
-      if (upRes.ok) { const upData = await upRes.json(); me.photo = upData.photos[0] || null; }
+      if (upRes.ok) { const upData = await upRes.json(); me.photos = upData.photos || []; me.photo = me.photos[0] || null; }
     } catch {}
     enterHome();
   } catch (e) {
@@ -524,14 +524,12 @@ async function openProfile(userId, isMine) {
     $("#profileAboutView").style.display = "none";
     $("#profileAboutEdit").style.display = "block";
     $("#profileAboutEdit").value = user.about || "";
-    $("#saveAbout").style.display = "inline-flex";
-    $("#logoutBtn").style.display = "block";
+    $("#profileActions").style.display = "flex";
   } else {
     $("#profileAboutView").style.display = "block";
     $("#profileAboutView").textContent = user.about || "no bio yet.";
     $("#profileAboutEdit").style.display = "none";
-    $("#saveAbout").style.display = "none";
-    $("#logoutBtn").style.display = "none";
+    $("#profileActions").style.display = "none";
   }
   $("#profileSheet").classList.add("open");
 }
