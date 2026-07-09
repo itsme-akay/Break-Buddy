@@ -1,6 +1,6 @@
 {
-  "name": "Break Buddy",
-  "short_name": "BreakBuddy",
+  "name": "Break Buddies",
+  "short_name": "BreakBuddies",
   "description": "Step out and meet someone nearby for a quick break.",
   "start_url": "/",
   "scope": "/",

@@ -1,14 +1,46 @@
 import express from "express";
 import crypto from "node:crypto";
 import path from "node:path";
+import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
 import webpush from "web-push";
+import multer from "multer";
 
 try { process.loadEnvFile(); } catch {}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
+
+// ---------- miniOrange OTP (phone verification) ----------
+const MO_CUSTOMER_KEY = process.env.MINIORANGE_CUSTOMER_KEY || "";
+const MO_API_KEY = process.env.MINIORANGE_API_KEY || "";
+const moEnabled = !!(MO_CUSTOMER_KEY && MO_API_KEY);
+if (!moEnabled) console.warn("Phone verification disabled: MINIORANGE_CUSTOMER_KEY/MINIORANGE_API_KEY not set in .env");
+
+function moHeaders() {
+  const ts = Date.now().toString();
+  const sig = crypto.createHash("sha512").update(MO_CUSTOMER_KEY + ts + MO_API_KEY).digest("hex");
+  return { "Content-Type": "application/json", "Customer-Key": MO_CUSTOMER_KEY, "Timestamp": ts, "Authorization": sig };
+}
+
+async function moSendOtp(phoneE164) {
+  const r = await fetch("https://login.xecurify.com/moas/api/auth/challenge", {
+    method: "POST",
+    headers: moHeaders(),
+    body: JSON.stringify({ customerKey: MO_CUSTOMER_KEY, phone: phoneE164, authType: "SMS" }),
+  });
+  return r.json();
+}
+
+async function moValidateOtp(txId, code) {
+  const r = await fetch("https://login.xecurify.com/moas/api/auth/validate", {
+    method: "POST",
+    headers: moHeaders(),
+    body: JSON.stringify({ txId, token: code }),
+  });
+  return r.json();
+}
 
 // ---------- sqlite store ----------
 const db = new Database(path.join(__dirname, "breakbuddy.db"));
@@ -21,6 +53,11 @@ CREATE TABLE IF NOT EXISTS users (
   name TEXT,
   avatar TEXT,
   gender TEXT,
+  phone TEXT,
+  about TEXT,
+  photo1 TEXT,
+  photo2 TEXT,
+  photo3 TEXT,
   createdAt INTEGER
 );
 CREATE TABLE IF NOT EXISTS pings (
@@ -31,6 +68,7 @@ CREATE TABLE IF NOT EXISTS pings (
   lat REAL,
   lng REAL,
   createdAt INTEGER,
+  startAt INTEGER,
   expiresAt INTEGER
 );
 CREATE TABLE IF NOT EXISTS joins (
@@ -55,13 +93,34 @@ CREATE TABLE IF NOT EXISTS push_subs (
   auth TEXT,
   createdAt INTEGER
 );
+CREATE TABLE IF NOT EXISTS blocks (
+  id TEXT PRIMARY KEY,
+  blockerId TEXT,
+  blockedId TEXT,
+  createdAt INTEGER
+);
+CREATE TABLE IF NOT EXISTS reports (
+  id TEXT PRIMARY KEY,
+  reporterId TEXT,
+  reportedId TEXT,
+  reason TEXT,
+  createdAt INTEGER
+);
 CREATE INDEX IF NOT EXISTS idx_pings_host ON pings(hostId);
 CREATE INDEX IF NOT EXISTS idx_pings_expires ON pings(expiresAt);
 CREATE INDEX IF NOT EXISTS idx_joins_ping ON joins(pingId);
 CREATE INDEX IF NOT EXISTS idx_joins_user ON joins(userId);
 CREATE INDEX IF NOT EXISTS idx_messages_ping ON messages(pingId);
 CREATE INDEX IF NOT EXISTS idx_pushsubs_user ON push_subs(userId);
+CREATE INDEX IF NOT EXISTS idx_blocks_blocker ON blocks(blockerId);
+CREATE INDEX IF NOT EXISTS idx_blocks_blocked ON blocks(blockedId);
 `);
+try { db.exec("ALTER TABLE users ADD COLUMN phone TEXT"); } catch {}
+try { db.exec("ALTER TABLE pings ADD COLUMN startAt INTEGER"); } catch {}
+try { db.exec("ALTER TABLE users ADD COLUMN about TEXT"); } catch {}
+try { db.exec("ALTER TABLE users ADD COLUMN photo1 TEXT"); } catch {}
+try { db.exec("ALTER TABLE users ADD COLUMN photo2 TEXT"); } catch {}
+try { db.exec("ALTER TABLE users ADD COLUMN photo3 TEXT"); } catch {}
 
 function id() {
   return crypto.randomBytes(8).toString("hex");
@@ -83,13 +142,13 @@ function distance(aLat, aLng, bLat, bLng) {
 }
 
 const stmt = {
-  insertUser: db.prepare(`INSERT INTO users (id, token, name, avatar, gender, createdAt) VALUES (?,?,?,?,?,?)`),
+  insertUser: db.prepare(`INSERT INTO users (id, token, name, avatar, gender, phone, createdAt) VALUES (?,?,?,?,?,?,?)`),
   userByToken: db.prepare(`SELECT * FROM users WHERE token = ?`),
   userById: db.prepare(`SELECT * FROM users WHERE id = ?`),
   allUsers: db.prepare(`SELECT * FROM users ORDER BY createdAt DESC`),
   countUsers: db.prepare(`SELECT COUNT(*) c FROM users`),
 
-  insertPing: db.prepare(`INSERT INTO pings (id, hostId, type, spot, lat, lng, createdAt, expiresAt) VALUES (?,?,?,?,?,?,?,?)`),
+  insertPing: db.prepare(`INSERT INTO pings (id, hostId, type, spot, lat, lng, createdAt, startAt, expiresAt) VALUES (?,?,?,?,?,?,?,?,?)`),
   expireHostPings: db.prepare(`UPDATE pings SET expiresAt = ? WHERE hostId = ? AND expiresAt > ?`),
   activePings: db.prepare(`SELECT * FROM pings WHERE expiresAt > ?`),
   pingById: db.prepare(`SELECT * FROM pings WHERE id = ?`),
@@ -115,11 +174,39 @@ const stmt = {
   pushSubsByUser: db.prepare(`SELECT * FROM push_subs WHERE userId = ?`),
   deletePushSubByEndpoint: db.prepare(`DELETE FROM push_subs WHERE endpoint = ?`),
   countPushUsers: db.prepare(`SELECT COUNT(DISTINCT userId) c FROM push_subs`),
+
+  insertBlock: db.prepare(`INSERT INTO blocks (id, blockerId, blockedId, createdAt) VALUES (?,?,?,?)`),
+  isBlockedEitherWay: db.prepare(`SELECT 1 FROM blocks WHERE (blockerId=? AND blockedId=?) OR (blockerId=? AND blockedId=?) LIMIT 1`),
+  countBlocks: db.prepare(`SELECT COUNT(*) c FROM blocks`),
+
+  insertReport: db.prepare(`INSERT INTO reports (id, reporterId, reportedId, reason, createdAt) VALUES (?,?,?,?,?)`),
+  countReports: db.prepare(`SELECT COUNT(*) c FROM reports`),
+
+  updateAbout: db.prepare(`UPDATE users SET about = ? WHERE id = ?`),
+  updatePhotos: db.prepare(`UPDATE users SET photo1 = ?, photo2 = ?, photo3 = ? WHERE id = ?`),
 };
+
+function isBlocked(userIdA, userIdB) {
+  return !!stmt.isBlockedEitherWay.get(userIdA, userIdB, userIdB, userIdA);
+}
+
+function userPhotos(u) {
+  return [u.photo1, u.photo2, u.photo3].filter(Boolean);
+}
+
+function escapeHtml(s) {
+  return String(s || "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
 
 function publicUser(u) {
   if (!u) return null;
-  return { id: u.id, name: u.name, avatar: u.avatar, gender: u.gender };
+  const photos = userPhotos(u);
+  return { id: u.id, name: u.name, avatar: u.avatar, gender: u.gender, photo: photos[0] || null };
+}
+
+function fullProfile(u) {
+  if (!u) return null;
+  return { id: u.id, name: u.name, avatar: u.avatar, gender: u.gender, about: u.about || "", photos: userPhotos(u) };
 }
 function isActive(p) {
   return !!p && p.expiresAt > now();
@@ -130,7 +217,7 @@ const VAPID_PUBLIC = process.env.VAPID_PUBLIC_KEY || "";
 const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || "";
 const pushEnabled = !!(VAPID_PUBLIC && VAPID_PRIVATE);
 if (pushEnabled) {
-  webpush.setVapidDetails("mailto:hello@breakbuddy.app", VAPID_PUBLIC, VAPID_PRIVATE);
+  webpush.setVapidDetails("mailto:hello@breakbuddies.in", VAPID_PUBLIC, VAPID_PRIVATE);
 } else {
   console.warn("Push notifications disabled: VAPID keys not set in .env");
 }
@@ -148,7 +235,25 @@ function notifyUser(userId, payload) {
 // ---------- app ----------
 const app = express();
 app.use(express.json());
+app.use((req, res, next) => { res.set("Cache-Control", "no-cache"); next(); });
 app.use(express.static(path.join(__dirname, "public")));
+
+const UPLOAD_DIR = path.join(__dirname, "public", "uploads");
+fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, UPLOAD_DIR),
+    filename: (req, file, cb) => {
+      const ext = (path.extname(file.originalname) || ".jpg").toLowerCase().replace(/[^a-z0-9.]/g, "");
+      cb(null, `${req.user.id}-${Date.now()}-${crypto.randomBytes(4).toString("hex")}${ext}`);
+    },
+  }),
+  limits: { fileSize: 5 * 1024 * 1024, files: 3 },
+  fileFilter: (req, file, cb) => {
+    if (!/^image\/(jpeg|png|webp|gif)$/.test(file.mimetype)) return cb(new Error("images only"));
+    cb(null, true);
+  },
+});
 
 function auth(req, res, next) {
   const token = req.headers.authorization?.replace("Bearer ", "") || req.body?.token;
@@ -158,24 +263,73 @@ function auth(req, res, next) {
   next();
 }
 
-// sign up / login (lightweight)
-app.post("/api/session", (req, res) => {
-  const { name, avatar, gender } = req.body || {};
+// send an OTP to a phone number (miniOrange)
+app.post("/api/otp/send", async (req, res) => {
+  if (!moEnabled) return res.status(500).json({ error: "phone verification not configured yet" });
+  const digits = String(req.body?.phone || "").replace(/\D/g, "");
+  if (digits.length < 10) return res.status(400).json({ error: "valid phone number required" });
+  const e164 = digits.length === 10 ? "91" + digits : digits;
+  try {
+    const data = await moSendOtp(e164);
+    if (data.status !== "SUCCESS") return res.status(400).json({ error: data.message || "could not send OTP" });
+    res.json({ txId: data.txId });
+  } catch {
+    res.status(500).json({ error: "could not send OTP, try again" });
+  }
+});
+
+// sign up / login — verifies the OTP server-side before creating the account
+app.post("/api/session", async (req, res) => {
+  const { name, avatar, gender, phone: rawPhone, txId, code } = req.body || {};
   if (!name || !name.trim()) return res.status(400).json({ error: "name required" });
+  if (!moEnabled) return res.status(500).json({ error: "phone verification not configured yet" });
+  if (!txId || !code) return res.status(400).json({ error: "phone verification required" });
+  let result;
+  try { result = await moValidateOtp(txId, code); } catch { return res.status(500).json({ error: "verification failed, try again" }); }
+  if (result.status !== "SUCCESS") return res.status(401).json({ error: "invalid or expired OTP" });
+  const phone = String(rawPhone || "").replace(/\D/g, "").slice(0, 15);
+  if (phone.length < 10) return res.status(400).json({ error: "valid phone number required" });
   const user = {
     id: id(),
     token: crypto.randomBytes(16).toString("hex"),
     name: name.trim().slice(0, 30),
     avatar: avatar || "🙂",
     gender: gender || "",
+    phone,
     createdAt: now(),
   };
-  stmt.insertUser.run(user.id, user.token, user.name, user.avatar, user.gender, user.createdAt);
+  stmt.insertUser.run(user.id, user.token, user.name, user.avatar, user.gender, user.phone, user.createdAt);
   res.json({ token: user.token, user: publicUser(user) });
 });
 
 app.get("/api/me", auth, (req, res) => {
-  res.json({ user: publicUser(req.user) });
+  res.json({ user: { ...fullProfile(req.user), phone: req.user.phone } });
+});
+
+// upload 1-3 profile photos (replaces existing)
+app.post("/api/profile/photos", auth, (req, res) => {
+  upload.array("photos", 3)(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message || "upload failed" });
+    if (!req.files || !req.files.length) return res.status(400).json({ error: "at least one photo required" });
+    const urls = req.files.slice(0, 3).map((f) => `/uploads/${f.filename}`);
+    while (urls.length < 3) urls.push(null);
+    stmt.updatePhotos.run(urls[0], urls[1], urls[2], req.user.id);
+    res.json({ photos: urls.filter(Boolean) });
+  });
+});
+
+// update "about" text
+app.post("/api/profile/about", auth, (req, res) => {
+  const about = String(req.body?.about || "").slice(0, 300);
+  stmt.updateAbout.run(about, req.user.id);
+  res.json({ about });
+});
+
+// view another user's public profile
+app.get("/api/users/:id", auth, (req, res) => {
+  const u = stmt.userById.get(req.params.id);
+  if (!u) return res.status(404).json({ error: "not found" });
+  res.json({ user: fullProfile(u) });
 });
 
 // push notifications: public key + subscribe/unsubscribe
@@ -198,12 +352,13 @@ app.post("/api/push/unsubscribe", auth, (req, res) => {
 
 // create a break ping
 app.post("/api/pings", auth, (req, res) => {
-  const { type, duration, spot, lat, lng } = req.body || {};
+  const { type, duration, spot, lat, lng, startAt } = req.body || {};
   if (typeof lat !== "number" || typeof lng !== "number")
     return res.status(400).json({ error: "location required" });
   if (!spot || !String(spot).trim())
     return res.status(400).json({ error: "meeting spot required" });
   const mins = Math.min(Math.max(parseInt(duration, 10) || 20, 5), 60);
+  const start = Math.max(parseInt(startAt, 10) || now(), now());
   stmt.expireHostPings.run(now(), req.user.id, now());
   const ping = {
     id: id(),
@@ -213,9 +368,10 @@ app.post("/api/pings", auth, (req, res) => {
     lat,
     lng,
     createdAt: now(),
-    expiresAt: now() + mins * 60000,
+    startAt: start,
+    expiresAt: start + mins * 60000,
   };
-  stmt.insertPing.run(ping.id, ping.hostId, ping.type, ping.spot, ping.lat, ping.lng, ping.createdAt, ping.expiresAt);
+  stmt.insertPing.run(ping.id, ping.hostId, ping.type, ping.spot, ping.lat, ping.lng, ping.createdAt, ping.startAt, ping.expiresAt);
   res.json({ ping });
 });
 
@@ -227,6 +383,7 @@ app.get("/api/pings", auth, (req, res) => {
   const hasLoc = !isNaN(lat) && !isNaN(lng);
   const out = stmt.activePings
     .all(now())
+    .filter((p) => p.hostId === req.user.id || !isBlocked(req.user.id, p.hostId))
     .map((p) => {
       const host = stmt.userById.get(p.hostId);
       const accepted = stmt.acceptedJoinsByPing.all(p.id);
@@ -240,6 +397,7 @@ app.get("/api/pings", auth, (req, res) => {
         isMine: p.hostId === req.user.id,
         joinedCount: accepted.length,
         myJoinStatus: myJoin ? myJoin.status : null,
+        startAt: p.startAt,
         expiresAt: p.expiresAt,
         lat: p.lat,
         lng: p.lng,
@@ -268,6 +426,7 @@ app.post("/api/pings/:id/join", auth, (req, res) => {
   const ping = stmt.pingById.get(req.params.id);
   if (!ping || !isActive(ping)) return res.status(404).json({ error: "break not found" });
   if (ping.hostId === req.user.id) return res.status(400).json({ error: "your own break" });
+  if (isBlocked(req.user.id, ping.hostId)) return res.status(403).json({ error: "not available" });
   let join = stmt.joinByPingUser.get(ping.id, req.user.id);
   if (!join) {
     join = { id: id(), pingId: ping.id, userId: req.user.id, status: "pending", createdAt: now() };
@@ -275,7 +434,7 @@ app.post("/api/pings/:id/join", auth, (req, res) => {
     notifyUser(ping.hostId, {
       title: `${req.user.name} wants to join`,
       body: `Tap to accept their ${ping.type} break request`,
-      url: "/",
+      url: `/?openChat=${ping.id}&mine=1`,
     });
   }
   res.json({ join });
@@ -291,7 +450,7 @@ app.post("/api/joins/:id/accept", auth, (req, res) => {
   notifyUser(join.userId, {
     title: "You're in!",
     body: `${req.user.name} accepted your ${ping.type} break. Meet at ${ping.spot}.`,
-    url: "/",
+    url: `/?openChat=${ping.id}&mine=0`,
   });
   res.json({ join: { ...join, status: "accepted" } });
 });
@@ -299,9 +458,28 @@ app.post("/api/joins/:id/accept", auth, (req, res) => {
 // chat: get messages (participants only)
 function canChat(ping, userId) {
   if (!ping) return false;
+  if (isBlocked(userId, ping.hostId)) return false;
   if (ping.hostId === userId) return true;
   return !!stmt.acceptedJoinByPingUser.get(ping.id, userId);
 }
+
+// block a user (mutual: hides each other's breaks, blocks join/chat)
+app.post("/api/block", auth, (req, res) => {
+  const { userId } = req.body || {};
+  if (!userId || userId === req.user.id) return res.status(400).json({ error: "invalid user" });
+  if (!isBlocked(req.user.id, userId)) {
+    stmt.insertBlock.run(id(), req.user.id, userId, now());
+  }
+  res.json({ ok: true });
+});
+
+// report a user
+app.post("/api/report", auth, (req, res) => {
+  const { userId, reason } = req.body || {};
+  if (!userId) return res.status(400).json({ error: "invalid user" });
+  stmt.insertReport.run(id(), req.user.id, userId, String(reason || "").slice(0, 300), now());
+  res.json({ ok: true });
+});
 
 app.get("/api/pings/:id/messages", auth, (req, res) => {
   const ping = stmt.pingById.get(req.params.id);
@@ -329,7 +507,10 @@ app.post("/api/pings/:id/messages", auth, (req, res) => {
   for (const j of stmt.acceptedJoinsByPing.all(ping.id)) {
     if (j.userId !== req.user.id) recipients.add(j.userId);
   }
-  for (const uid of recipients) notifyUser(uid, { title: req.user.name, body: text, url: "/" });
+  for (const uid of recipients) {
+    const mine = uid === ping.hostId ? 1 : 0;
+    notifyUser(uid, { title: req.user.name, body: text, url: `/?openChat=${ping.id}&mine=${mine}` });
+  }
 
   res.json({ message: msg });
 });
@@ -372,7 +553,7 @@ function requireAdminAuth(req, res, next) {
     const [user, pass] = Buffer.from(encoded, "base64").toString().split(":");
     if (user === ADMIN_USER && pass === ADMIN_PASS) return next();
   }
-  res.set("WWW-Authenticate", 'Basic realm="Break Buddy Admin"');
+  res.set("WWW-Authenticate", 'Basic realm="Break Buddies Admin"');
   res.status(401).send("Authentication required.");
 }
 
@@ -385,6 +566,8 @@ app.get("/admin", requireAdminAuth, (req, res) => {
   const acceptedJoins = stmt.countAcceptedJoins.get().c;
   const totalMessages = stmt.countMessages.get().c;
   const pushUsers = stmt.countPushUsers.get().c;
+  const totalBlocks = stmt.countBlocks.get().c;
+  const totalReports = stmt.countReports.get().c;
 
   const activeRows = activePings
     .map((p) => {
@@ -394,11 +577,22 @@ app.get("/admin", requireAdminAuth, (req, res) => {
     .join("");
   const recentUsers = stmt.allUsers.all().slice(0, 30);
   const userRows = recentUsers
-    .map((u) => `<tr><td>${u.avatar || ""}</td><td>${u.name}</td><td>${fmt(u.createdAt)}</td></tr>`)
+    .map((u) => {
+      const photoCount = userPhotos(u).length;
+      return `<tr><td>${u.avatar || ""}</td><td>${escapeHtml(u.name)}</td><td>${escapeHtml(u.gender) || "-"}</td><td>${escapeHtml(u.phone)}</td><td>${photoCount}</td><td>${escapeHtml(u.about) || "-"}</td><td>${fmt(u.createdAt)}</td></tr>`;
+    })
+    .join("");
+  const recentReports = db.prepare(`SELECT * FROM reports ORDER BY createdAt DESC LIMIT 30`).all();
+  const reportRows = recentReports
+    .map((r) => {
+      const reporter = stmt.userById.get(r.reporterId);
+      const reported = stmt.userById.get(r.reportedId);
+      return `<tr><td>${reporter ? reporter.name : "?"}</td><td>${reported ? reported.name : "?"}</td><td>${r.reason || ""}</td><td>${fmt(r.createdAt)}</td></tr>`;
+    })
     .join("");
 
   res.send(`<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Break Buddy — Admin</title>
+<html><head><meta charset="utf-8"><title>Break Buddies — Admin</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 body{font-family:system-ui,-apple-system,sans-serif;background:#0a0e27;color:#fff;padding:24px;margin:0;}
@@ -415,7 +609,7 @@ h2{font-size:15px;margin:0 0 12px;}
 .tag{display:inline-block;font-size:11px;padding:3px 9px;border-radius:20px;background:${pushEnabled ? "#0f6e56" : "#712b13"};color:#fff;margin-bottom:28px;}
 </style></head>
 <body>
-<h1>Break Buddy — Admin</h1>
+<h1>Break Buddies — Admin</h1>
 <p class="sub">Auto-refreshes every 30s · last updated ${fmt(Date.now())} · storage: SQLite</p>
 <span class="tag">push notifications: ${pushEnabled ? "enabled" : "disabled (set VAPID keys in .env)"}</span>
 <div class="stats">
@@ -426,15 +620,19 @@ h2{font-size:15px;margin:0 0 12px;}
 <div class="stat"><div class="n">${totalJoins}</div><div class="l">total join requests</div></div>
 <div class="stat"><div class="n">${totalMessages}</div><div class="l">chat messages sent</div></div>
 <div class="stat"><div class="n">${pushUsers}</div><div class="l">users with notifications on</div></div>
+<div class="stat"><div class="n">${totalReports}</div><div class="l">reports filed</div></div>
+<div class="stat"><div class="n">${totalBlocks}</div><div class="l">users blocked</div></div>
 </div>
+<h2>Recent reports</h2>
+<table><tr><th>Reporter</th><th>Reported</th><th>Reason</th><th>When</th></tr>${reportRows || '<tr><td colspan="4">No reports</td></tr>'}</table>
 <h2>Active breaks right now</h2>
 <table><tr><th>Host</th><th>Type</th><th>Spot</th><th>Expires</th></tr>${activeRows || '<tr><td colspan="4">None active</td></tr>'}</table>
 <h2>Recent signups</h2>
-<table><tr><th>Avatar</th><th>Name</th><th>Joined</th></tr>${userRows || '<tr><td colspan="3">No users yet</td></tr>'}</table>
+<table><tr><th>Avatar</th><th>Name</th><th>Gender</th><th>Phone</th><th>Photos</th><th>About</th><th>Joined</th></tr>${userRows || '<tr><td colspan="7">No users yet</td></tr>'}</table>
 <script>setTimeout(()=>location.reload(), 30000)</script>
 </body></html>`);
 });
 
 app.listen(PORT, () => {
-  console.log(`Break Buddy portal running: http://localhost:${PORT}`);
+  console.log(`Break Buddies portal running: http://localhost:${PORT}`);
 });

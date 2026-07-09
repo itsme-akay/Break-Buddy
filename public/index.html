@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
-  <title>Break Buddy - step out, meet nearby</title>
+  <title>Break Buddies - step out, meet nearby</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -17,24 +17,30 @@
 <body>
   <!-- shown only on desktop / wide screens -->
   <div id="desktopGate">
-    <div class="brand"><span class="dot"></span> Break Buddy</div>
+    <div class="brand"><span class="dot"></span> Break Buddies</div>
     <div class="phone-ico">📱</div>
     <h2>Open on your phone</h2>
-    <p>Break Buddy is built for mobile. Open this link on your phone, or make your browser window narrow to preview.</p>
+    <p>Break Buddies is built for mobile. Open this link on your phone, or make your browser window narrow to preview.</p>
     <div class="url" id="gateUrl"></div>
   </div>
 
-  <div id="installBanner" class="install-banner">
-    <span id="installText">Install Break Buddy for quick access</span>
-    <button id="installBtn" class="install-btn">Install</button>
-    <button id="installDismiss" class="install-x" aria-label="dismiss">✕</button>
+  <!-- ADD TO HOME SCREEN: shown once per user -->
+  <div id="installSheet" class="sheet-wrap">
+    <div class="sheet glass hang-card">
+      <div class="sheet-handle"></div>
+      <div class="hero-img-wrap hang-img-wrap"><img src="/assest/Icons/coffe-icon.webp" class="hero-img" alt="" /></div>
+      <div class="hang-tagline">Add Break Buddies to your Home Screen</div>
+      <div class="hang-meta" id="installMeta">Quick access, no browser bar, feels like an app</div>
+      <button id="installBtn" class="btn-primary">Install</button>
+      <button id="installDismiss" class="hang-skip">Not now</button>
+    </div>
   </div>
 
   <div id="app">
 
     <!-- LOGIN -->
     <section id="screen-login" class="screen active">
-      <div class="brand"><span class="dot"></span> Break Buddy</div>
+      <div class="brand"><span class="dot"></span> Break Buddies</div>
       <h1 class="hero">stop scrolling<br /><span class="grad">step out now</span></h1>
 
       <!-- stacked hero cards (SocialJar style) -->
@@ -52,22 +58,34 @@
       </div>
 
       <div class="glass card-login">
-        <p class="label">pick your vibe</p>
-        <div id="avatarPick" class="avatars">
-          <button class="av selected">🙂</button>
-          <button class="av">🔥</button>
-          <button class="av">☕</button>
-          <button class="av">🎧</button>
-          <button class="av">🥳</button>
-          <button class="av">⚡</button>
+        <p class="label">your photos (1 to 3)</p>
+        <div id="photoPicker" class="photo-picker">
+          <label class="photo-box" data-slot="0">
+            <input type="file" accept="image/*" class="photo-input" data-slot="0" hidden />
+            <span class="photo-plus">+</span>
+            <button type="button" class="photo-remove" data-slot="0" hidden>✕</button>
+          </label>
+          <label class="photo-box" data-slot="1">
+            <input type="file" accept="image/*" class="photo-input" data-slot="1" hidden />
+            <span class="photo-plus">+</span>
+            <button type="button" class="photo-remove" data-slot="1" hidden>✕</button>
+          </label>
+          <label class="photo-box" data-slot="2">
+            <input type="file" accept="image/*" class="photo-input" data-slot="2" hidden />
+            <span class="photo-plus">+</span>
+            <button type="button" class="photo-remove" data-slot="2" hidden>✕</button>
+          </label>
         </div>
+        <p id="photoErr" class="err" style="text-align:left;margin:-8px 0 10px;"></p>
         <input id="nameInput" class="field" placeholder="your name" maxlength="30" />
+        <input id="phoneInput" class="field" type="tel" inputmode="numeric" placeholder="phone number" maxlength="15" />
+        <input id="otpInput" class="field" type="tel" inputmode="numeric" placeholder="6-digit OTP" maxlength="6" style="display:none;" />
         <div class="seg" id="genderSeg">
-          <button data-g="">skip</button>
           <button data-g="male">male</button>
           <button data-g="female">female</button>
+          <button data-g="other">other</button>
         </div>
-        <button id="loginBtn" class="btn-primary">Enter Break Buddy</button>
+        <button id="loginBtn" class="btn-primary">Send OTP</button>
         <p id="loginErr" class="err"></p>
       </div>
 
@@ -89,12 +107,19 @@
           <div class="how-sub">Walk over, meet in minutes. No endless texting, just a quick break together.</div>
         </div>
       </section>
+
+      <footer class="legal-footer">
+        <a href="/privacy.html">Privacy Policy</a>
+        <span>·</span>
+        <a href="/terms.html">Terms of Service</a>
+      </footer>
+      <p class="made-in-india">Made with ❤️ in India</p>
     </section>
 
     <!-- HOME -->
     <section id="screen-home" class="screen">
       <header class="topbar">
-        <div class="brand small"><span class="dot"></span> Break Buddy</div>
+        <div class="brand small"><span class="dot"></span> Break Buddies</div>
         <div class="me" id="meChip"></div>
       </header>
 
@@ -150,13 +175,27 @@
         <button class="chip" data-t="chill">🎧 chill</button>
         <button class="chip" data-t="drinks"><img class="chip-ico" src="/assest/Icons/coke-icon.webp" alt="">drinks</button>
       </div>
+      <div class="row-50">
+        <div>
+          <p class="label">date</p>
+          <input type="date" id="dateInput" class="field" />
+        </div>
+        <div>
+          <p class="label">when</p>
+          <select id="whenSelect" class="field"></select>
+        </div>
+      </div>
       <p class="label">how long</p>
       <div class="chips" id="durChips">
         <button class="chip" data-d="10">10 min</button>
         <button class="chip selected" data-d="20">20 min</button>
         <button class="chip" data-d="30">30 min</button>
       </div>
-      <input id="spotInput" class="field" placeholder="meeting spot (e.g. Gate 2 tea stall)" maxlength="60" required />
+      <p id="durPreview" class="nearby-hint" style="margin:-6px 0 14px;"></p>
+      <div style="position:relative;">
+        <input id="spotInput" class="field" placeholder="meeting spot (e.g. Gate 2 tea stall)" maxlength="80" autocomplete="off" required />
+        <div id="spotSuggest" class="spot-suggest"></div>
+      </div>
       <p id="spotErr" class="err" style="text-align:left;margin:-8px 0 10px;"></p>
       <div class="sheet-actions">
         <button id="cancelCreate" class="btn-ghost">cancel</button>
@@ -172,6 +211,11 @@
       <div class="row-between">
         <h3 class="h3" id="detailTitle">break</h3>
         <button id="closeDetail" class="x">✕</button>
+      </div>
+      <div id="safetyRow" class="safety-row" style="display:none;">
+        <button id="reportUserBtn" class="safety-link">report</button>
+        <span>·</span>
+        <button id="blockUserBtn" class="safety-link">block</button>
       </div>
       <div id="detailSpot" class="spot"></div>
       <div id="joinReqs" class="join-reqs"></div>
@@ -200,6 +244,25 @@
         <div class="chips hang-counters" id="notifCounters"></div>
       </div>
       <button id="notifSkip" class="hang-skip">Not right now</button>
+    </div>
+  </div>
+
+  <!-- USER PROFILE -->
+  <div id="profileSheet" class="sheet-wrap">
+    <div class="sheet glass tall">
+      <div class="sheet-handle"></div>
+      <div class="row-between">
+        <h3 class="h3">profile</h3>
+        <button id="closeProfile" class="x">✕</button>
+      </div>
+      <div class="profile-name" id="profileName"></div>
+      <div class="profile-gallery" id="profileGallery"></div>
+      <p class="label">about</p>
+      <p id="profileAboutView" class="profile-about-view"></p>
+      <textarea id="profileAboutEdit" class="field profile-about-edit" maxlength="300" placeholder="say something about yourself..." style="display:none;"></textarea>
+      <button id="saveAbout" class="btn-primary sm" style="display:none;">save</button>
+      <p id="profileErr" class="err"></p>
+      <button id="logoutBtn" class="btn-ghost profile-logout" style="display:none;">Log out</button>
     </div>
   </div>
 

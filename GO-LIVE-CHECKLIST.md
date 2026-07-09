@@ -1,4 +1,4 @@
-# Break Buddy — Go-Live Checklist
+# Break Buddies — Go-Live Checklist
 
 ## Verdict: Stage 1 kahan khada hai
 
@@ -76,7 +76,7 @@ Core product loop **poora kaam karta hai** — login, break create/join, live po
 ## SEO Checklist (proper, structured)
 
 ### Zaroori context — SEO kahan lagegi
-Break Buddy ka **app hi ka hissa** (map, breaks, chat) login ke peeche hai — Google isko crawl/index **kar hi nahi sakta**, aur karna bhi nahi chahiye (personal/location data hai). SEO ka **poora fayda ek public landing/marketing page ko milega** — jo app explain kare, waitlist le, ya download/install ka option de. Jab tak wo page nahi banता, SEO ka koi practical asar nahi hai.
+Break Buddies ka **app hi ka hissa** (map, breaks, chat) login ke peeche hai — Google isko crawl/index **kar hi nahi sakta**, aur karna bhi nahi chahiye (personal/location data hai). SEO ka **poora fayda ek public landing/marketing page ko milega** — jo app explain kare, waitlist le, ya download/install ka option de. Jab tak wo page nahi banता, SEO ka koi practical asar nahi hai.
 
 ### 1. Technical SEO (site-wide)
 - [ ] **HTTPS** — non-negotiable, ranking signal + user trust (tumhare domain pe already set ho raha hai)
@@ -89,7 +89,7 @@ Break Buddy ka **app hi ka hissa** (map, breaks, chat) login ke peeche hai — G
 - [ ] **Structured data** — `schema.org/SoftwareApplication` ya `MobileApplication` markup, Google rich results ke liye
 
 ### 2. On-page SEO (landing page ban네 ke baad)
-- [ ] **`<title>`** — unique, 50-60 chars, primary keyword ke saath (e.g. "Break Buddy — Meet Someone Nearby for a Quick Break")
+- [ ] **`<title>`** — unique, 50-60 chars, primary keyword ke saath (e.g. "Break Buddies — Meet Someone Nearby for a Quick Break")
 - [ ] **`<meta name="description">`** — 150-160 chars, compelling, click karne ka reason de — abhi missing
 - [ ] **Open Graph tags** (`og:title`, `og:description`, `og:image`, `og:url`, `og:type`) — WhatsApp/Facebook share preview ke liye
 - [ ] **Twitter Card tags** (`twitter:card`, `twitter:title`, `twitter:image`)
@@ -99,13 +99,13 @@ Break Buddy ka **app hi ka hissa** (map, breaks, chat) login ke peeche hai — G
 - [ ] **Internal links** — landing page se privacy/terms/app links
 
 ### 3. Content / Keyword strategy
-- [ ] Primary keyword decide karo: e.g. "meet nearby app", "spontaneous meetup app India", "break buddy app"
+- [ ] Primary keyword decide karo: e.g. "meet nearby app", "spontaneous meetup app India", "break buddies app"
 - [ ] Landing page copy mein naturally keywords use karo (title, first paragraph, headings) — keyword stuffing mat karo
 - [ ] Blog/content angle (optional, baad mein) — "college break culture", "how to meet new people nearby" jaisa content organic traffic la sakta hai
 
 ### 4. Local SEO (kyunki ye location-based app hai)
 - [ ] Google Business Profile bana sakte ho agar ek specific city/campus target karna hai
-- [ ] City/area-specific landing pages agar multiple cities target karne hain (e.g. "Break Buddy Gurgaon")
+- [ ] City/area-specific landing pages agar multiple cities target karne hain (e.g. "Break Buddies Gurgaon")
 - [ ] Local keywords: "nearby hangout app [city]"
 
 ### 5. Off-page / Launch day

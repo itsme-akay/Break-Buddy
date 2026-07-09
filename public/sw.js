@@ -11,7 +11,7 @@ self.addEventListener("fetch", (e) => {
 self.addEventListener("push", (event) => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch { data = {}; }
-  const title = data.title || "Break Buddy";
+  const title = data.title || "Break Buddies";
   event.waitUntil(
     self.registration.showNotification(title, {
       body: data.body || "",
@@ -25,9 +25,17 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const url = (event.notification.data && event.notification.data.url) || "/";
+  const params = new URL(url, self.location.origin).searchParams;
+  const openChat = params.get("openChat");
+  const mine = params.get("mine");
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
-      for (const c of list) if ("focus" in c) return c.focus();
+      for (const c of list) {
+        if ("focus" in c) {
+          if (openChat && "postMessage" in c) c.postMessage({ type: "openChat", pingId: openChat, mine: mine === "1" });
+          return c.focus();
+        }
+      }
       if (clients.openWindow) return clients.openWindow(url);
     })
   );

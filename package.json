@@ -1,7 +1,7 @@
 {
   "name": "breakbuddy-portal",
   "version": "0.1.0",
-  "description": "Break Buddy - step out and meet someone nearby right now",
+  "description": "Break Buddies - step out and meet someone nearby right now",
   "type": "module",
   "scripts": {
     "dev": "node server.js",
@@ -10,6 +10,7 @@
   "dependencies": {
     "better-sqlite3": "^12.11.1",
     "express": "^4.19.2",
+    "multer": "^2.2.0",
     "web-push": "^3.6.7"
   }
 }

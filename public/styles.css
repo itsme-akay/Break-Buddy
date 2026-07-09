@@ -73,10 +73,30 @@ html, body {
 }
 .card-login { padding: 22px; }
 .label { color: var(--muted); font-size: 13px; margin-bottom: 10px; font-weight: 500; }
+.row-50 { display: flex; gap: 12px; }
+.row-50 > div { flex: 1 1 50%; min-width: 0; }
 
 .avatars { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
 .av { width: 40px; height: 40px; border-radius: 10px; font-size: 22px; background: var(--glass); border: 1px solid var(--glass-brd); cursor: pointer; transition: 0.15s; }
 .av.selected { border-color: var(--green); box-shadow: 0 0 0 2px var(--green-glow); background: rgba(34,197,94,0.10); }
+
+.photo-picker { display: flex; gap: 10px; margin-bottom: 10px; }
+.photo-box {
+  position: relative; width: 76px; height: 76px; border-radius: 14px; flex-shrink: 0;
+  background: var(--glass); border: 1.5px dashed var(--glass-brd);
+  display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden;
+}
+.photo-box.filled { border-style: solid; border-color: var(--green); }
+.photo-box img { width: 100%; height: 100%; object-fit: cover; }
+.photo-plus { font-size: 26px; color: var(--muted); font-weight: 300; }
+.photo-box.filled .photo-plus { display: none; }
+.photo-remove {
+  position: absolute; top: 3px; right: 3px; width: 20px; height: 20px; border-radius: 50%;
+  background: rgba(0,0,0,0.65); color: #fff; border: none; font-size: 11px; cursor: pointer;
+  display: none; align-items: center; justify-content: center;
+}
+.photo-remove[hidden] { display: none; }
+.photo-box.filled .photo-remove { display: flex; }
 
 .field {
   width: 100%; padding: 13px 16px; border-radius: 10px; font-size: 15px;
@@ -86,6 +106,17 @@ html, body {
 .field::placeholder { color: var(--muted); }
 .field:focus { border-color: var(--green); }
 .field-invalid { border-color: #e24b4a !important; }
+input[type="date"].field { color-scheme: dark; }
+input[type="date"].field::-webkit-calendar-picker-indicator { filter: invert(1); cursor: pointer; }
+
+.spot-suggest {
+  display: none; position: absolute; left: 0; right: 0; top: calc(100% - 10px); z-index: 40;
+  background: var(--card); border: 1px solid var(--glass-brd); border-radius: 14px;
+  max-height: 220px; overflow-y: auto; backdrop-filter: blur(14px);
+}
+.spot-suggest-item { padding: 11px 14px; font-size: 13.5px; color: var(--text); border-bottom: 0.5px solid var(--glass-brd); cursor: pointer; }
+.spot-suggest-item:last-child { border-bottom: none; }
+.spot-suggest-item:active { background: var(--glass); }
 
 .seg { display: flex; gap: 8px; margin-bottom: 18px; }
 .seg button { flex: 1; padding: 11px; border-radius: 12px; background: var(--glass); border: 1px solid var(--glass-brd); color: var(--muted); font-family: inherit; font-size: 14px; cursor: pointer; }
@@ -107,6 +138,7 @@ html, body {
 .me:active { background: var(--glass); }
 .me .avatar-badge { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-size: 17px; background: var(--glass); border: 1px solid var(--glass-brd); overflow: hidden; }
 .me img.avatar-badge { object-fit: contain; padding: 3px; }
+.me img.avatar-badge.photo { padding: 0; }
 
 .map-wrap { position: relative; }
 #map { height: 300px; border-radius: 20px; overflow: hidden; border: 1px solid var(--glass-brd); z-index: 0; background: #0d1228; }
@@ -150,6 +182,7 @@ html, body {
 .mini-btn.wait { background: var(--glass); color: var(--muted); border: 1px solid var(--glass-brd); }
 .empty { text-align: center; color: var(--muted); padding: 30px 10px; font-size: 14px; }
 
+body:has(.sheet-wrap.open) .bottom-bar { display: none; }
 .bottom-bar {
   position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%);
   max-width: 440px; width: calc(100% - 24px);
@@ -180,6 +213,11 @@ html, body {
 .how-h { font-size: 19px; font-weight: 700; margin-bottom: 6px; }
 .how-sub { color: var(--muted); font-size: 14px; line-height: 1.55; }
 
+.legal-footer { text-align: center; padding: 10px 0 24px; color: var(--muted); font-size: 12.5px; }
+.legal-footer a { color: var(--muted); text-decoration: underline; }
+.legal-footer span { margin: 0 8px; }
+.made-in-india { text-align: center; padding: 0 0 20px; color: var(--muted); font-size: 12.5px; }
+
 /* ---------- sheets ---------- */
 .sheet-wrap { position: fixed; inset: 0; background: rgba(0,0,0,0.55); display: none; align-items: flex-end; justify-content: center; z-index: 900; }
 .sheet-wrap.open { display: flex; animation: backdropIn 0.28s ease; }
@@ -199,12 +237,25 @@ html, body {
 .spot { background: rgba(34,197,94,0.10); border: 1px solid var(--glass-brd); border-radius: 14px; padding: 12px 14px; font-size: 14px; margin: 6px 0 14px; }
 .spot b { color: var(--green); }
 
+.safety-row { display: flex; align-items: center; gap: 8px; margin: -6px 0 10px; }
+.safety-row span { color: var(--muted); font-size: 12px; }
+.safety-link { background: none; border: none; color: var(--muted); font-size: 12px; text-decoration: underline; cursor: pointer; font-family: inherit; padding: 2px 0; }
+.safety-link:active { color: #e24b4a; }
+
+.profile-name { font-size: 20px; font-weight: 700; text-align: center; margin: 4px 0 16px; }
+.profile-gallery { display: flex; gap: 10px; margin-bottom: 18px; justify-content: center; }
+.profile-photo { width: 92px; height: 92px; border-radius: 14px; object-fit: cover; background: var(--glass); border: 1px solid var(--glass-brd); }
+.profile-gallery-empty { color: var(--muted); font-size: 13px; text-align: center; }
+.profile-about-view { font-size: 14px; color: var(--muted); min-height: 20px; margin: 0 0 14px; white-space: pre-wrap; }
+.profile-about-edit { min-height: 80px; resize: none; margin-bottom: 10px; }
+.profile-logout { flex: none; margin-top: 18px; color: #ff6b6b; border-color: rgba(255,107,107,0.35); }
+
 .join-reqs { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
 .jr { display: flex; align-items: center; gap: 12px; padding: 13px 15px; border-radius: 16px; background: var(--glass); border: 1px solid var(--glass-brd); animation: jrIn 0.28s cubic-bezier(0.22, 1, 0.36, 1); }
 @keyframes jrIn { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
-.jr .pic { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-size: 18px; background: rgba(255,255,255,0.06); overflow: hidden; flex-shrink: 0; }
+.jr .pic { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-size: 18px; background: rgba(255,255,255,0.06); overflow: hidden; flex-shrink: 0; cursor: pointer; }
 .jr .pic .av-img { width: 26px; height: 26px; }
-.jr .nm { flex: 1; font-size: 15px; font-weight: 500; }
+.jr .nm { flex: 1; font-size: 15px; font-weight: 500; cursor: pointer; }
 .jr .accepted { color: var(--green); font-size: 13px; font-weight: 700; }
 
 .chat { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding: 6px 0; }
@@ -236,7 +287,8 @@ html, body {
 /* ---------- nearby popup: wants to hang ---------- */
 .hang-card { text-align: center; padding-top: 14px; z-index: 1200; }
 .hang-who { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 15px; color: var(--muted); margin-bottom: 6px; }
-.hang-avatar { font-size: 20px; line-height: 1; }
+.hang-avatar { font-size: 20px; line-height: 1; cursor: pointer; }
+#notifName { cursor: pointer; }
 .hang-avatar img { width: 26px; height: 26px; object-fit: contain; vertical-align: middle; }
 .hang-img-wrap { height: 190px; margin: 4px 0; }
 .hang-tagline { font-size: 24px; font-weight: 700; margin-bottom: 6px; }
@@ -245,16 +297,7 @@ html, body {
 .hang-counters { justify-content: center; margin-bottom: 6px; }
 .hang-skip { background: none; border: none; color: var(--muted); font-size: 14px; padding: 12px; cursor: pointer; font-family: inherit; }
 
-/* ---------- install app banner ---------- */
-.install-banner {
-  display: none; align-items: center; gap: 10px;
-  max-width: 480px; width: 100%; margin: 0 auto; box-sizing: border-box; position: relative; z-index: 1800;
-  background: rgba(13, 18, 40, 0.9); border-bottom: 1px solid var(--glass-brd);
-  padding: 10px 14px; font-size: 12.5px; color: var(--muted);
-  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
-}
-.install-banner.show { display: flex; }
-.install-banner span { flex: 1; line-height: 1.4; }
+/* ---------- shared small buttons ---------- */
 .install-btn { background: var(--green); color: #06210f; border: none; border-radius: 10px; padding: 7px 14px; font-weight: 700; font-size: 13px; cursor: pointer; font-family: inherit; flex-shrink: 0; }
 .install-x { background: none; border: none; color: var(--muted); font-size: 14px; cursor: pointer; flex-shrink: 0; }
 
